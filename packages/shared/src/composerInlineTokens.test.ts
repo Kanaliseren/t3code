@@ -31,16 +31,27 @@ describe("collectComposerInlineTokens", () => {
     ]);
   });
 
-  it("collects skill names that begin with a digit", () => {
-    expect(collectComposerInlineTokens("Use $2spec next")).toEqual([
-      {
-        type: "skill",
-        value: "2spec",
-        source: "$2spec",
-        start: 4,
-        end: 10,
-      },
-    ]);
+  it.each(["$", "€", "£", "¥", "₹", "₩", "₿", "𑿝"])(
+    "collects %s skill names that begin with a digit",
+    (prefix) => {
+      expect(collectComposerInlineTokens(`Use ${prefix}2spec next`)).toEqual([
+        {
+          type: "skill",
+          value: "2spec",
+          source: `${prefix}2spec`,
+          start: 4,
+          end: 9 + prefix.length,
+        },
+      ]);
+    },
+  );
+
+  it.each(["€", "£", "¥", "₹", "₩", "₿", "𑿝"])("leaves %s currency amounts as text", (prefix) => {
+    expect(
+      collectComposerInlineTokens(
+        `${prefix}20 ${prefix}1_000 ${prefix}20k ${prefix}100M ${prefix}1e6 `,
+      ),
+    ).toEqual([]);
   });
 
   it("leaves digits-only dollar amounts and compact monetary expressions as text", () => {
@@ -173,8 +184,6 @@ describe("collectComposerInlineTokens", () => {
   });
 
   it("stays fast on unterminated bracket runs", () => {
-    // Unbounded, the label body rescanned the rest of the text from every
-    // whitespace: this input took seconds.
     const started = performance.now();
     expect(collectComposerInlineTokens(" [[".repeat(40_000))).toEqual([]);
     expect(performance.now() - started).toBeLessThan(1_000);
