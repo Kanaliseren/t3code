@@ -302,28 +302,13 @@ describe("CLIProxyAPI built-in management API", () => {
     }),
   );
 
-  it.effect("reads Claude usage when the endpoint requires a Claude Code user agent", () =>
-    Effect.gen(function* () {
-      const test = fixture({
-        accounts: [{ ...accounts[0]!, provider: "claude" }],
-        upstream: (request) =>
-          request.header?.["User-Agent"]?.startsWith("claude-code/")
-            ? { status: 200, body: { five_hour: { utilization: 10, resets_at: null } } }
-            : { status: 429, body: { error: { type: "rate_limit_error" } } },
-      });
-      const api = yield* test.api;
-      const result = yield* api.readAccounts(config);
-      expect(result[0]?.usageLimits.unavailable).toBeUndefined();
-      expect(result[0]?.usageLimits.windows).toMatchObject([{ id: "five_hour", usedPercent: 10 }]);
-    }),
-  );
-
   it.effect("maps Claude scoped windows without a scheduler plugin", () =>
     Effect.gen(function* () {
       const test = fixture({
         accounts: [{ ...accounts[0]!, provider: "claude" }],
-        upstream: () => ({
-          status: 200,
+        // The usage endpoint answers 429 to requests without a Claude Code user agent.
+        upstream: (request) => ({
+          status: request.header?.["User-Agent"]?.startsWith("claude-code/") ? 200 : 429,
           body: {
             five_hour: { utilization: 10, resets_at: null },
             seven_day: { utilization: 50, resets_at: "2099-01-01T00:00:00Z" },
